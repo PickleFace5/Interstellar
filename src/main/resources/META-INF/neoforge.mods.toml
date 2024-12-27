@@ -2,7 +2,7 @@ modLoader="javafml" #mandatory
 loaderVersion="${loaderVersionRange}" #mandatory
 
 license="${modLicense}"
-#issueTrackerURL="https://change.me.to.your.issue.tracker.example.invalid/" #optional
+issueTrackerURL="https://github.com/PickleFace5/Interstellar/issues" #optional
 
 [[mods]] #mandatory
 modId="${modId}" #mandatory
