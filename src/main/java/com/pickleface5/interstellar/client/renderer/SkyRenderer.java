@@ -2,6 +2,7 @@ package com.pickleface5.interstellar.client.renderer;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.mojang.logging.LogUtils;
@@ -46,6 +47,8 @@ public class SkyRenderer {
             LOGGER.info("Nuked old star buffer");
         }
 
+        updateStarData();
+
         newStarBuffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
         newStarBuffer.bind();
         newStarBuffer.upload(drawNewStars(pTesselator));
@@ -55,25 +58,31 @@ public class SkyRenderer {
 
     private static MeshData drawNewStars(Tesselator pTesselator) {
         RandomSource randomsource = RandomSource.create(10842L);
-        BufferBuilder bufferbuilder = pTesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-
-        updateStarData();
+        BufferBuilder bufferbuilder = pTesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 
         int drawnStars = 0;
         for (StarData star : starData) {
             if (Config.namedStarsOnly && star.getName().isEmpty()) continue;
-            float f1 = star.getX() / 360;
-            float f2 = star.getY() / 360;
-            float f3 = star.getZ() / 360;
-            float f4 = 0.1F; //0.15F + randomsource.nextFloat() * 0.1F;
+            float f1 = star.getX();
+            float f2 = star.getY();
+            float f3 = star.getZ();
+            float f4 = 0.2F + randomsource.nextFloat() * 0.1F;
 
+            // Highlight constellations
             Vector3f vector3f = new Vector3f(f1, f2, f3).normalize(100.0F);
-            float f6 = (float) (/*randomsource.nextDouble()*/0 * (float) Math.PI * 2.0);
+            float f6 = (float) (randomsource.nextDouble() * (float) Math.PI * 2.0);
             Quaternionf quaternionf = new Quaternionf().rotateTo(new Vector3f(0.0F, 0.0F, -1.0F), vector3f).rotateZ(f6);
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf)));
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf)));
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf)));
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf)));
+            if (Config.highlightedStars.contains(star.getId())) {
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
+            } else {
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
+                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
+            }
 
             drawnStars++;
         }
@@ -103,37 +112,43 @@ public class SkyRenderer {
 
         if (!hasGeneratedNewStarBuffer) generateNewStarBuffer(Tesselator.getInstance());
 
-        Minecraft pMinecraft = Minecraft.getInstance();
-        ClientLevel pLevel = pMinecraft.level;
-        Camera pCamera = event.getCamera();
-        float pPartialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
-        boolean pIsFoggy = pMinecraft.level.effects().isFoggyAt(Mth.floor(pCamera.getPosition().x()), Mth.floor(pCamera.getPosition().y())) || pMinecraft.gui.getBossOverlay().shouldCreateWorldFog();
-        Runnable pSkyFogSetup = () -> FogRenderer.setupFog(pCamera, FogRenderer.FogMode.FOG_SKY, pMinecraft.gameRenderer.getRenderDistance(), pIsFoggy, pPartialTick);
+        Minecraft minecraft = Minecraft.getInstance();
+        ClientLevel level = minecraft.level;
+        Camera camera = event.getCamera();
+        float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+        boolean isFoggy = minecraft.level.effects().isFoggyAt(Mth.floor(camera.getPosition().x()), Mth.floor(camera.getPosition().y())) || minecraft.gui.getBossOverlay().shouldCreateWorldFog();
+        Runnable skyFogSetup = () -> FogRenderer.setupFog(camera, FogRenderer.FogMode.FOG_SKY, minecraft.gameRenderer.getRenderDistance(), isFoggy, partialTick);
 
-        pSkyFogSetup.run();
-        if (!pIsFoggy) {
-            FogType fogtype = pCamera.getFluidInCamera();
-            if (fogtype != FogType.POWDER_SNOW && fogtype != FogType.LAVA && !event.getLevelRenderer().doesMobEffectBlockSky(pCamera)) {
-                PoseStack posestack = new PoseStack();
+        skyFogSetup.run();
+        if (!isFoggy) {
+            FogType fogtype = camera.getFluidInCamera();
+            if (fogtype != FogType.POWDER_SNOW && fogtype != FogType.LAVA && !event.getLevelRenderer().doesMobEffectBlockSky(camera)) {
+                PoseStack posestack = event.getPoseStack();
                 posestack.mulPose(event.getModelViewMatrix());
-                if (pMinecraft.level.effects().skyType() == DimensionSpecialEffects.SkyType.NORMAL) {
-                    float f11 = 1.0F - pLevel.getRainLevel(pPartialTick);
-                    RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, f11);
+                RenderSystem.enableBlend();
+                if (minecraft.level.effects().skyType() == DimensionSpecialEffects.SkyType.NORMAL) {
+                    FogRenderer.levelFogColor();
+                    RenderSystem.depthMask(false);
+                    RenderSystem.blendFuncSeparate(
+                            GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
+                    );
+                    posestack.pushPose();
+                    float f11 = 1.0F - level.getRainLevel(partialTick);
                     posestack.mulPose(Axis.YP.rotationDegrees(-90.0F));
-                    posestack.mulPose(Axis.XP.rotationDegrees(pLevel.getTimeOfDay(pPartialTick) * 360.0F));
-                    float f10 = pLevel.getStarBrightness(pPartialTick) * f11;
+                    posestack.mulPose(Axis.XP.rotationDegrees(level.getTimeOfDay(partialTick) * 360.0F));
+                    float f10 = level.getStarBrightness(partialTick) * f11;
                     if (f10 > 0.0F) {
                         RenderSystem.setShaderColor(f10, f10, f10, f10);
                         FogRenderer.setupNoFog();
                         newStarBuffer.bind();
-                        newStarBuffer.drawWithShader(posestack.last().pose(), event.getProjectionMatrix(), GameRenderer.getPositionShader());
+                        newStarBuffer.drawWithShader(posestack.last().pose(), event.getProjectionMatrix(), GameRenderer.getPositionColorShader());
                         VertexBuffer.unbind();
-                        pSkyFogSetup.run();
+                        skyFogSetup.run();
                     }
+                    posestack.popPose();
                     RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
                     RenderSystem.disableBlend();
                     RenderSystem.defaultBlendFunc();
-                    posestack.popPose();
                     RenderSystem.depthMask(true);
                 }
             }
@@ -151,16 +166,22 @@ public class SkyRenderer {
     }
 
     public static class StarData {
+        private final int id;
         private final String name;
         private final float x;
         private final float y;
         private final float z;
 
-        StarData(String name, int x, int y, int z) {
+        StarData(int id, String name, int x, int y, int z) {
+            this.id = id;
             this.name = name;
             this.x = x;
             this.y = y;
             this.z = z;
+        }
+
+        int getId() {
+            return id;
         }
 
         String getName() {

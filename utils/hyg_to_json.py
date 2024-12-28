@@ -15,7 +15,14 @@ with open(csv_name, encoding="utf-8") as source:
         for row in reader:
             if row[6] == "Sol": #or row[6] not in big_dipper_stars:
                 continue
-            writer.writerow((row[6], row[17], row[18], row[19]))
+
+            star_id = row[0]
+            proper = row[6]
+            x = row[17]
+            y = row[18]
+            z = row[19]
+
+            writer.writerow((star_id, proper, x, y, z))
             parsed.write("\n")
 
 # Convert to json
