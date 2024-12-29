@@ -8,24 +8,25 @@ import com.mojang.blaze3d.vertex.*;
 import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
 import com.pickleface5.interstellar.Config;
-import com.pickleface5.interstellar.Interstellar;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.DimensionSpecialEffects;
+import net.minecraft.client.renderer.FogRenderer;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.material.FogType;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
-import java.io.*;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class SkyboxRenderer {
@@ -34,56 +35,80 @@ public class SkyboxRenderer {
     boolean hasCreatedStars = false;
     @Nullable
     VertexBuffer vanillaBuffer;
-    @Nullable
     VertexBuffer starBuffer;
+    VertexBuffer highlightBuffer;
 
     private static StarData[] starData;
-    private static int drawnStars = 0;
+    private int drawnStars = 0;
 
-    public void createStars(Tesselator pTesselator) {
+    public SkyboxRenderer() {
+        updateStarData();
+    }
+
+    public void reload(Tesselator tesselator) {
+        updateStarData();
+        createStars(tesselator);
+    }
+
+    public StarData[] getStarData() {
+        return starData;
+    }
+
+    private void createStars(Tesselator tesselator) {
         hasCreatedStars = true;
 
         if (vanillaBuffer != null) {
             vanillaBuffer.bind();
-            vanillaBuffer.upload(createEmptyBuffer(pTesselator));
-            LOGGER.info("Nuked old star buffer");
+            vanillaBuffer.upload(createEmptyBuffer(tesselator));
         }
-
-        updateStarData();
 
         starBuffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
-        starBuffer.bind();
-        starBuffer.upload(drawNewStars(pTesselator));
-        VertexBuffer.unbind();
-        LOGGER.info("Generated new star buffer");
+        highlightBuffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        uploadNewStars(tesselator, starBuffer, highlightBuffer);
     }
 
-    private MeshData drawNewStars(Tesselator pTesselator) {
-        RandomSource randomsource = RandomSource.create(10842L);
-        BufferBuilder bufferbuilder = pTesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-
+    private void uploadNewStars(Tesselator tesselator, VertexBuffer starBuffer, VertexBuffer highlightBuffer) {
+        RandomSource random = RandomSource.create(10842L);
         int drawnStars = 0;
+
+        List<StarData> highlightStars = new ArrayList<>();
+        starBuffer.bind();
+        BufferBuilder bufferbuilder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
         for (StarData star : starData) {
+            if (Config.highlightedStarNames.contains(star.getName()) || Config.highlightedStarsIds.contains(star.getId())) {
+                highlightStars.add(star);
+                continue;
+            }
             if (Config.namedStarsOnly && star.getName().isEmpty()) continue;
-            float f1 = star.getX();
-            float f2 = star.getY();
-            float f3 = star.getZ();
-            float f4 = 0.2F + randomsource.nextFloat() * 0.1F;
-
-            // Highlight constellations
-            Vector3f vector3f = new Vector3f(f1, f2, f3).normalize(100.0F);
-            float f6 = (float) (randomsource.nextDouble() * (float) Math.PI * 2.0);
-            Quaternionf quaternionf = new Quaternionf().rotateTo(new Vector3f(0.0F, 0.0F, -1.0F), vector3f).rotateZ(f6);
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf)));
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf)));
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf)));
-            bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf)));
-
+            drawStar(bufferbuilder, star.getX(), star.getY(), star.getZ(), random.nextFloat(), 0.2F + random.nextFloat() * 0.1F);
             drawnStars++;
         }
-        SkyboxRenderer.drawnStars = drawnStars;
+        starBuffer.upload(bufferbuilder.buildOrThrow());
+        VertexBuffer.unbind();
 
-        return bufferbuilder.buildOrThrow();
+        highlightBuffer.bind();
+        bufferbuilder = tesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
+        if (!highlightStars.isEmpty()) {
+            for (StarData star : highlightStars) {
+                drawStar(bufferbuilder, star.getX(), star.getY(), star.getZ(), random.nextFloat(), 0.25F + random.nextFloat() * 0.1F);
+                drawnStars++;
+            }
+        } else {
+            bufferbuilder.addVertex(0, 0, 0);
+        }
+        highlightBuffer.upload(bufferbuilder.buildOrThrow());
+        VertexBuffer.unbind();
+
+        this.drawnStars = drawnStars;
+    }
+
+    private void drawStar(BufferBuilder bufferBuilder, float x, float y, float z, float rads, float size) {
+        Vector3f vector = new Vector3f(x, y, z).normalize(100.0F);
+        Quaternionf quaternion = new Quaternionf().rotateTo(new Vector3f(0.0F, 0.0F, -1.0F), vector).rotateZ(rads * (float) Math.PI * 2);
+        bufferBuilder.addVertex(vector.add(new Vector3f(size, -size, 0.0F).rotate(quaternion)));
+        bufferBuilder.addVertex(vector.add(new Vector3f(size, size, 0.0F).rotate(quaternion)));
+        bufferBuilder.addVertex(vector.add(new Vector3f(-size, size, 0.0F).rotate(quaternion)));
+        bufferBuilder.addVertex(vector.add(new Vector3f(-size, -size, 0.0F).rotate(quaternion)));
     }
 
     private static void updateStarData() {
@@ -103,18 +128,16 @@ public class SkyboxRenderer {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY) return;
         if (vanillaBuffer == null) vanillaBuffer = Minecraft.getInstance().levelRenderer.starBuffer;
 
-        // 1. On first load in to dimension, delete old stars and generate new stars.
-        // 2. Render stars (same as vanilla for now)
-
         if (!hasCreatedStars) {
             createStars(Tesselator.getInstance());
         }
 
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
+        assert level != null;
         Camera camera = event.getCamera();
         float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(false);
-        boolean isFoggy = minecraft.level.effects().isFoggyAt(Mth.floor(camera.getPosition().x()), Mth.floor(camera.getPosition().y())) || minecraft.gui.getBossOverlay().shouldCreateWorldFog();
+        boolean isFoggy = level.effects().isFoggyAt(Mth.floor(camera.getPosition().x()), Mth.floor(camera.getPosition().y())) || minecraft.gui.getBossOverlay().shouldCreateWorldFog();
         Runnable skyFogSetup = () -> FogRenderer.setupFog(camera, FogRenderer.FogMode.FOG_SKY, minecraft.gameRenderer.getRenderDistance(), isFoggy, partialTick);
 
         skyFogSetup.run();
@@ -130,16 +153,26 @@ public class SkyboxRenderer {
                     RenderSystem.blendFuncSeparate(
                             GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
                     );
+                    //posestack.mulPose(Axis.XP.rotationDegrees(90.0F));
+                    //posestack.mulPose(Axis.ZP.rotationDegrees(-90.0F));
+                    //posestack.mulPose(Axis.YP.rotationDegrees(-90.0F));
                     posestack.pushPose();
                     float f11 = 1.0F - level.getRainLevel(partialTick);
-                    posestack.mulPose(Axis.YP.rotationDegrees(-90.0F));
-                    posestack.mulPose(Axis.XP.rotationDegrees(level.getTimeOfDay(partialTick) * 360.0F));
+                    posestack.mulPose(Axis.XP.rotationDegrees(23.5F));
+                    posestack.mulPose(Axis.YP.rotationDegrees(180.0F));
+                    posestack.mulPose(Axis.ZP.rotationDegrees(level.getTimeOfDay(partialTick) * 360.0F));
                     float f10 = level.getStarBrightness(partialTick) * f11;
+                    float f12 = Math.min(f10 * 1.8F, 1);
                     if (f10 > 0.0F) {
                         RenderSystem.setShaderColor(f10, f10, f10, f10);
                         FogRenderer.setupNoFog();
                         starBuffer.bind();
+                        assert GameRenderer.getPositionShader() != null;
                         starBuffer.drawWithShader(posestack.last().pose(), event.getProjectionMatrix(), GameRenderer.getPositionShader());
+                        VertexBuffer.unbind();
+                        RenderSystem.setShaderColor(f12, f12, f12, f12);
+                        highlightBuffer.bind();
+                        highlightBuffer.drawWithShader(posestack.last().pose(), event.getProjectionMatrix(), GameRenderer.getPositionShader());
                         VertexBuffer.unbind();
                         skyFogSetup.run();
                     }
@@ -159,7 +192,7 @@ public class SkyboxRenderer {
         return bufferBuilder.build();
     }
 
-    public static int getStarAmount() {
+    public int getStarAmount() {
         return drawnStars;
     }
 
@@ -170,7 +203,7 @@ public class SkyboxRenderer {
         private final float y;
         private final float z;
 
-        StarData(int id, String name, int x, int y, int z) {
+        private StarData(int id, String name, int x, int y, int z) {
             this.id = id;
             this.name = name;
             this.x = x;
@@ -178,23 +211,23 @@ public class SkyboxRenderer {
             this.z = z;
         }
 
-        int getId() {
+        public int getId() {
             return id;
         }
 
-        String getName() {
+        public String getName() {
             return name;
         }
 
-        float getX() {
+        public float getX() {
             return x;
         }
 
-        float getY() {
+        public float getY() {
             return y;
         }
 
-        float getZ() {
+        public float getZ() {
             return z;
         }
     }

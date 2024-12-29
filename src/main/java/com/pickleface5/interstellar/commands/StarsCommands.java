@@ -21,8 +21,9 @@ public class StarsCommands {
     }
 
     private static int reloadStarBuffer(CommandSourceStack pSource) {
-        Interstellar.getSkyRenderer().createStars(Tesselator.getInstance());
-        int starAm = SkyboxRenderer.getStarAmount();
+        SkyboxRenderer skyboxRenderer = Interstellar.getSkyboxRenderer();
+        skyboxRenderer.reload(Tesselator.getInstance());
+        int starAm = skyboxRenderer.getStarAmount();
         pSource.sendSuccess(() -> Component.translatable("commands.stars.reloaded", starAm), true);
         return starAm;
     }
