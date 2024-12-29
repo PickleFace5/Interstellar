@@ -24,41 +24,43 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 
+import javax.annotation.Nullable;
 import java.io.*;
 import java.util.Objects;
 
-@EventBusSubscriber(modid = Interstellar.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
-public class SkyRenderer {
+public class SkyboxRenderer {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    static boolean hasGeneratedNewStarBuffer = false;
-    static VertexBuffer oldStarBuffer = null;
-    static VertexBuffer newStarBuffer = null;
+    boolean hasCreatedStars = false;
+    @Nullable
+    VertexBuffer vanillaBuffer;
+    @Nullable
+    VertexBuffer starBuffer;
 
-    public static StarData[] starData;
+    private static StarData[] starData;
     private static int drawnStars = 0;
 
-    public static void generateNewStarBuffer(Tesselator pTesselator) {
-        hasGeneratedNewStarBuffer = true;
+    public void createStars(Tesselator pTesselator) {
+        hasCreatedStars = true;
 
-        if (oldStarBuffer != null) {
-            oldStarBuffer.bind();
-            oldStarBuffer.upload(createEmptyBuffer(pTesselator));
+        if (vanillaBuffer != null) {
+            vanillaBuffer.bind();
+            vanillaBuffer.upload(createEmptyBuffer(pTesselator));
             LOGGER.info("Nuked old star buffer");
         }
 
         updateStarData();
 
-        newStarBuffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
-        newStarBuffer.bind();
-        newStarBuffer.upload(drawNewStars(pTesselator));
+        starBuffer = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        starBuffer.bind();
+        starBuffer.upload(drawNewStars(pTesselator));
         VertexBuffer.unbind();
         LOGGER.info("Generated new star buffer");
     }
 
-    private static MeshData drawNewStars(Tesselator pTesselator) {
+    private MeshData drawNewStars(Tesselator pTesselator) {
         RandomSource randomsource = RandomSource.create(10842L);
-        BufferBuilder bufferbuilder = pTesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder bufferbuilder = pTesselator.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
 
         int drawnStars = 0;
         for (StarData star : starData) {
@@ -72,45 +74,41 @@ public class SkyRenderer {
             Vector3f vector3f = new Vector3f(f1, f2, f3).normalize(100.0F);
             float f6 = (float) (randomsource.nextDouble() * (float) Math.PI * 2.0);
             Quaternionf quaternionf = new Quaternionf().rotateTo(new Vector3f(0.0F, 0.0F, -1.0F), vector3f).rotateZ(f6);
-            if (Config.highlightedStars.contains(star.getId())) {
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 0, 0, 1);
-            } else {
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
-                bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf))).setColor(1, 1, 1, 1);
-            }
+            bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, -f4, 0.0F).rotate(quaternionf)));
+            bufferbuilder.addVertex(vector3f.add(new Vector3f(f4, f4, 0.0F).rotate(quaternionf)));
+            bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, f4, 0.0F).rotate(quaternionf)));
+            bufferbuilder.addVertex(vector3f.add(new Vector3f(-f4, -f4, 0.0F).rotate(quaternionf)));
 
             drawnStars++;
         }
-        SkyRenderer.drawnStars = drawnStars;
+        SkyboxRenderer.drawnStars = drawnStars;
 
         return bufferbuilder.buildOrThrow();
     }
 
-    public static void updateStarData() {
+    private static void updateStarData() {
         Gson gson = new GsonBuilder().create();
         try {
             InputStreamReader reader = new InputStreamReader(Objects.requireNonNull(
-                    SkyRenderer.class.getResourceAsStream("/assets/interstellar/stars.json")));
+                    SkyboxRenderer.class.getResourceAsStream("/assets/interstellar/stars.json")));
             starData = gson.fromJson(reader, StarData[].class);
         } catch (NullPointerException e) {
             starData = new StarData[]{};
+            LOGGER.error("stars.json not found, destroying the fabric of space");
         }
     }
 
     @SubscribeEvent
-    public static void onRenderLevelAfterSky(RenderLevelStageEvent event) {
+    public void onRenderLevelAfterSky(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY) return;
-        if (oldStarBuffer == null) oldStarBuffer = Minecraft.getInstance().levelRenderer.starBuffer;
+        if (vanillaBuffer == null) vanillaBuffer = Minecraft.getInstance().levelRenderer.starBuffer;
 
         // 1. On first load in to dimension, delete old stars and generate new stars.
         // 2. Render stars (same as vanilla for now)
 
-        if (!hasGeneratedNewStarBuffer) generateNewStarBuffer(Tesselator.getInstance());
+        if (!hasCreatedStars) {
+            createStars(Tesselator.getInstance());
+        }
 
         Minecraft minecraft = Minecraft.getInstance();
         ClientLevel level = minecraft.level;
@@ -140,8 +138,8 @@ public class SkyRenderer {
                     if (f10 > 0.0F) {
                         RenderSystem.setShaderColor(f10, f10, f10, f10);
                         FogRenderer.setupNoFog();
-                        newStarBuffer.bind();
-                        newStarBuffer.drawWithShader(posestack.last().pose(), event.getProjectionMatrix(), GameRenderer.getPositionColorShader());
+                        starBuffer.bind();
+                        starBuffer.drawWithShader(posestack.last().pose(), event.getProjectionMatrix(), GameRenderer.getPositionShader());
                         VertexBuffer.unbind();
                         skyFogSetup.run();
                     }
