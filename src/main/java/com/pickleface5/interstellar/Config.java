@@ -1,7 +1,8 @@
 package com.pickleface5.interstellar;
 
 import com.mojang.logging.LogUtils;
-import com.pickleface5.interstellar.client.renderer.SkyboxRenderer;
+import com.pickleface5.interstellar.star.Star;
+import com.pickleface5.interstellar.star.StarHandler;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -41,16 +42,16 @@ public class Config {
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateStarName(final Object obj) {
-        SkyboxRenderer.StarData[] validNames = Interstellar.getSkyboxRenderer().getStarData();
-        if (obj instanceof String) return Arrays.stream(validNames).map(SkyboxRenderer.StarData::getName).anyMatch(obj::equals);
+        Star[] validNames = StarHandler.getStarsFromJson();
+        if (obj instanceof String) return Arrays.stream(validNames).map(Star::getName).anyMatch(obj::equals);
         LOGGER.warn("Highlighted Star \"{}\" not valid", obj);
         return false;
     }
 
     private static boolean validateStarId(final Object obj) {
-        int[] validIds = Arrays.stream(Interstellar.getSkyboxRenderer().getStarData()).map(SkyboxRenderer.StarData::getId).mapToInt(Integer::intValue).toArray();
+        int[] validIds = Arrays.stream(StarHandler.getStarsFromJson()).map(Star::getId).mapToInt(Integer::intValue).toArray();
         if (obj instanceof Integer) return IntStream.of(validIds).anyMatch(id -> id == (int) obj);
-        LOGGER.warn("Highlighted Star of id \" {}\" not valid", obj);
+        LOGGER.warn("Highlighted Star of id \"{}\" not valid", obj);
         return false;
     }
 

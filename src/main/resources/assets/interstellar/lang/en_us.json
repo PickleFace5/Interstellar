@@ -1,3 +1,8 @@
 {
-  "commands.stars.reloaded": "Reloaded %s stars"
+  "commands.stars.refreshed": "Refreshed %s stars",
+  "commands.stars.no_change": "Reload cancelled, no changes detected",
+  "commands.stars.no_target": "No target selected",
+
+  "star_info.no_name": "Target is Star #%s, located at (%s, %s, %s)",
+  "star_info.with_name": "Target is Star #%s, %s, located at (%s, %s, %s)"
 }

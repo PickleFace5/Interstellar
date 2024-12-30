@@ -1,8 +1,8 @@
 package com.pickleface5.interstellar;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.pickleface5.interstellar.client.renderer.SkyboxRenderer;
-import com.pickleface5.interstellar.commands.StarsCommands;
+import com.pickleface5.interstellar.renderer.SkyboxRenderer;
+import com.pickleface5.interstellar.commands.StarsCommand;
 import net.minecraft.commands.CommandSourceStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -35,7 +35,7 @@ public class Interstellar
         @SubscribeEvent
         public static void registerClientCommands(RegisterClientCommandsEvent event) {
             CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-            StarsCommands.register(dispatcher);
+            StarsCommand.register(dispatcher);
         }
     }
 
