@@ -1,8 +1,8 @@
 package com.pickleface5.interstellar;
 
 import com.mojang.logging.LogUtils;
-import com.pickleface5.interstellar.star.Star;
-import com.pickleface5.interstellar.star.StarHandler;
+import com.pickleface5.interstellar.client.star.Star;
+import com.pickleface5.interstellar.client.star.StarHandler;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.config.ModConfigEvent;

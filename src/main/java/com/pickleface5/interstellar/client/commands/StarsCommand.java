@@ -1,11 +1,11 @@
-package com.pickleface5.interstellar.commands;
+package com.pickleface5.interstellar.client.commands;
 
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.brigadier.CommandDispatcher;
 import com.pickleface5.interstellar.Interstellar;
-import com.pickleface5.interstellar.renderer.SkyboxRenderer;
-import com.pickleface5.interstellar.star.Star;
-import com.pickleface5.interstellar.star.StarHandler;
+import com.pickleface5.interstellar.client.renderer.SkyboxRenderer;
+import com.pickleface5.interstellar.client.star.Star;
+import com.pickleface5.interstellar.client.star.StarHandler;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;

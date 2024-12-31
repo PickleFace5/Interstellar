@@ -1,4 +1,4 @@
-package com.pickleface5.interstellar.star;
+package com.pickleface5.interstellar.client.star;
 
 public class Star {
     private final int id;

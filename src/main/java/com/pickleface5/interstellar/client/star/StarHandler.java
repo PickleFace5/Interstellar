@@ -1,9 +1,9 @@
-package com.pickleface5.interstellar.star;
+package com.pickleface5.interstellar.client.star;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mojang.logging.LogUtils;
-import com.pickleface5.interstellar.renderer.SkyboxRenderer;
+import com.pickleface5.interstellar.client.renderer.SkyboxRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import org.slf4j.Logger;

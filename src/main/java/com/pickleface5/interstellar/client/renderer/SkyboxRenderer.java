@@ -1,4 +1,4 @@
-package com.pickleface5.interstellar.renderer;
+package com.pickleface5.interstellar.client.renderer;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -6,8 +6,8 @@ import com.mojang.blaze3d.vertex.*;
 import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
 import com.pickleface5.interstellar.Config;
-import com.pickleface5.interstellar.star.Star;
-import com.pickleface5.interstellar.star.StarHandler;
+import com.pickleface5.interstellar.client.star.Star;
+import com.pickleface5.interstellar.client.star.StarHandler;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
