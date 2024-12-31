@@ -3,6 +3,6 @@
   "commands.stars.no_change": "Reload cancelled, no changes detected",
   "commands.stars.no_target": "No target selected",
 
-  "star_info.no_name": "Target is Star #%s, located at (%s, %s, %s)",
-  "star_info.with_name": "Target is Star #%s, %s, located at (%s, %s, %s)"
+  "star_info.no_name": "Star #%s, located at (%s, %s, %s)",
+  "star_info.with_name": "Star #%s, %s, located at (%s, %s, %s)"
 }
